@@ -1,23 +1,43 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { embedText } from "@/lib/gemini";
+import { withRetry } from "@/lib/with-retry";
 
 export const runtime = "nodejs";
 
 const BUCKET = "screenshots";
 const MATCH_COUNT = 5;
 
-interface MatchRow {
+interface SnippetSource {
+  extracted_text: string;
+  key_details: Record<string, unknown>;
+}
+
+interface ActionFields {
+  is_actionable: boolean;
+  action_date: string | null;
+  action_title: string | null;
+  action_confirmed: boolean;
+}
+
+interface EntityMatchRow extends SnippetSource, ActionFields {
+  entity_id: string;
+  entity_name: string;
+  screenshot_id: string;
+  title: string;
+  category: string;
+  image_url: string;
+}
+
+interface SemanticMatchRow extends SnippetSource, ActionFields {
   id: string;
   title: string;
   category: string;
-  extracted_text: string;
-  key_details: Record<string, unknown>;
   image_url: string;
   similarity: number;
 }
 
-function buildSnippet(row: MatchRow): string {
+function buildSnippet(row: SnippetSource): string {
   const text = row.extracted_text?.trim();
   if (text) {
     return text.length > 140 ? `${text.slice(0, 140)}…` : text;
@@ -30,6 +50,14 @@ function buildSnippet(row: MatchRow): string {
   }
 
   return "";
+}
+
+async function withSignedUrl(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  imageUrl: string
+): Promise<string | null> {
+  const { data } = await supabase.storage.from(BUCKET).createSignedUrl(imageUrl, 3600);
+  return data?.signedUrl ?? null;
 }
 
 export async function POST(request: Request) {
@@ -56,9 +84,52 @@ export async function POST(request: Request) {
     );
   }
 
-  const { count, error: countError } = await supabase
-    .from("screenshots")
-    .select("id", { count: "exact", head: true });
+  // Relationship queries first — "everything from Rahul" should return every
+  // screenshot linked to that entity, not just the one closest by embedding.
+  // A missing/empty match falls straight through to semantic search below.
+  const { data: entityMatches, error: entityError } = await withRetry(() =>
+    supabase.rpc("find_entity_screenshots", { query_text: query })
+  );
+
+  if (entityError) {
+    console.error("find_entity_screenshots failed:", {
+      message: entityError.message,
+      details: entityError.details,
+      hint: entityError.hint,
+      code: entityError.code,
+    });
+    // Non-fatal — fall through to semantic search rather than failing the
+    // whole request over the entity-graph lookup.
+  }
+
+  const entityRows = (entityMatches ?? []) as EntityMatchRow[];
+
+  if (entityRows.length > 0) {
+    const results = await Promise.all(
+      entityRows.map(async (row) => ({
+        id: row.screenshot_id,
+        title: row.title,
+        category: row.category,
+        snippet: buildSnippet(row),
+        image_signed_url: await withSignedUrl(supabase, row.image_url),
+        is_actionable: row.is_actionable,
+        action_date: row.action_date,
+        action_title: row.action_title,
+        action_confirmed: row.action_confirmed,
+      }))
+    );
+
+    return NextResponse.json({
+      mode: "entity",
+      entityName: entityRows[0].entity_name,
+      results,
+      isDatabaseEmpty: false,
+    });
+  }
+
+  const { count, error: countError } = await withRetry(() =>
+    supabase.from("screenshots").select("id", { count: "exact", head: true })
+  );
 
   if (countError) {
     console.error("Supabase count failed:", {
@@ -71,7 +142,7 @@ export async function POST(request: Request) {
   }
 
   if (!count) {
-    return NextResponse.json({ results: [], isDatabaseEmpty: true });
+    return NextResponse.json({ mode: "semantic", results: [], isDatabaseEmpty: true });
   }
 
   let queryEmbedding: number[];
@@ -85,10 +156,12 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data: matches, error: matchError } = await supabase.rpc("match_screenshots", {
-    query_embedding: queryEmbedding,
-    match_count: MATCH_COUNT,
-  });
+  const { data: matches, error: matchError } = await withRetry(() =>
+    supabase.rpc("match_screenshots", {
+      query_embedding: queryEmbedding,
+      match_count: MATCH_COUNT,
+    })
+  );
 
   if (matchError) {
     console.error("Supabase match_screenshots failed:", {
@@ -108,23 +181,21 @@ export async function POST(request: Request) {
     );
   }
 
-  const rows = (matches ?? []) as MatchRow[];
+  const rows = (matches ?? []) as SemanticMatchRow[];
 
   const results = await Promise.all(
-    rows.map(async (row) => {
-      const { data: signed } = await supabase.storage
-        .from(BUCKET)
-        .createSignedUrl(row.image_url, 3600);
-
-      return {
-        id: row.id,
-        title: row.title,
-        category: row.category,
-        snippet: buildSnippet(row),
-        image_signed_url: signed?.signedUrl ?? null,
-      };
-    })
+    rows.map(async (row) => ({
+      id: row.id,
+      title: row.title,
+      category: row.category,
+      snippet: buildSnippet(row),
+      image_signed_url: await withSignedUrl(supabase, row.image_url),
+      is_actionable: row.is_actionable,
+      action_date: row.action_date,
+      action_title: row.action_title,
+      action_confirmed: row.action_confirmed,
+    }))
   );
 
-  return NextResponse.json({ results, isDatabaseEmpty: false });
+  return NextResponse.json({ mode: "semantic", results, isDatabaseEmpty: false });
 }

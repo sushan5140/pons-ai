@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import ScreenshotUploader from "@/components/app/screenshot-uploader";
-import ScreenshotSearch from "@/components/app/screenshot-search";
+import AppWorkspace from "@/components/app/app-workspace";
 
 export const metadata: Metadata = {
   title: "pons — Upload a screenshot",
@@ -21,13 +20,7 @@ export default function AppPage() {
           </p>
         </div>
 
-        <div className="mx-auto mt-12 max-w-2xl">
-          <ScreenshotSearch />
-        </div>
-
-        <div id="upload" className="mt-16 scroll-mt-28">
-          <ScreenshotUploader />
-        </div>
+        <AppWorkspace />
       </div>
     </main>
   );

@@ -57,7 +57,7 @@ export default function Navbar() {
         </nav>
 
         <MagneticButton
-          href="#demo"
+          href="/app"
           className="bg-ink text-white hover:bg-ink/85"
           strength={0.25}
         >

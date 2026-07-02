@@ -113,7 +113,7 @@ export default function Hero() {
           <Reveal delay={0.32}>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-4 lg:justify-start">
               <MagneticButton
-                href="#demo"
+                href="/app"
                 className="bg-ink text-white shadow-[0_16px_32px_-12px_rgba(19,33,46,0.4)] hover:bg-ink/85"
               >
                 Try the Demo

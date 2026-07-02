@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { analyzeScreenshot, buildEmbeddingSource, embedText } from "@/lib/gemini";
+import { withRetry } from "@/lib/with-retry";
 
 export const runtime = "nodejs";
 
@@ -47,9 +48,9 @@ export async function POST(request: Request) {
   const extension = file.type.split("/")[1] ?? "png";
   const storagePath = `${randomUUID()}.${extension}`;
 
-  const { error: uploadError } = await supabase.storage
-    .from(BUCKET)
-    .upload(storagePath, buffer, { contentType: file.type, upsert: false });
+  const { error: uploadError } = await withRetry(() =>
+    supabase.storage.from(BUCKET).upload(storagePath, buffer, { contentType: file.type, upsert: false })
+  );
 
   if (uploadError) {
     console.error("Supabase upload failed:", uploadError);
@@ -89,19 +90,26 @@ export async function POST(request: Request) {
     console.error("Embedding generation failed:", err);
   }
 
-  const { data: row, error: insertError } = await supabase
-    .from("screenshots")
-    .insert({
-      image_url: storagePath,
-      title: analysis.title,
-      category: analysis.category,
-      extracted_text: analysis.extracted_text,
-      key_details: analysis.key_details,
-      entities: analysis.entities,
-      embedding,
-    })
-    .select()
-    .single();
+  const { data: row, error: insertError } = await withRetry(() =>
+    supabase
+      .from("screenshots")
+      .insert({
+        image_url: storagePath,
+        title: analysis.title,
+        category: analysis.category,
+        extracted_text: analysis.extracted_text,
+        key_details: analysis.key_details,
+        entities: analysis.entities,
+        embedding,
+        is_actionable: analysis.is_actionable,
+        action_date: analysis.action_date,
+        action_title: analysis.action_title,
+        action_location: analysis.action_location,
+        reminder_minutes_before: analysis.reminder_minutes_before,
+      })
+      .select()
+      .single()
+  );
 
   if (insertError) {
     console.error("Supabase insert failed:", {
@@ -124,6 +132,26 @@ export async function POST(request: Request) {
     );
   }
 
+  // Entity linking is non-fatal for the same reason as embeddings — a
+  // screenshot is still fully usable even if it isn't linked into the
+  // entity graph yet.
+  if (analysis.entities.length > 0) {
+    const { error: linkError } = await withRetry(() =>
+      supabase.rpc("link_screenshot_entities", {
+        p_screenshot_id: row.id,
+        p_entities: analysis.entities,
+      })
+    );
+    if (linkError) {
+      console.error("Entity linking failed:", {
+        message: linkError.message,
+        details: linkError.details,
+        hint: linkError.hint,
+        code: linkError.code,
+      });
+    }
+  }
+
   const { data: signedUrlData } = await supabase.storage
     .from(BUCKET)
     .createSignedUrl(storagePath, 3600);
@@ -136,5 +164,10 @@ export async function POST(request: Request) {
     key_details: row.key_details,
     entities: row.entities,
     image_signed_url: signedUrlData?.signedUrl ?? null,
+    is_actionable: row.is_actionable,
+    action_date: row.action_date,
+    action_title: row.action_title,
+    action_location: row.action_location,
+    action_confirmed: row.action_confirmed,
   });
 }

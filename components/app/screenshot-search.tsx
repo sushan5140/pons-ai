@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { forwardRef, useImperativeHandle, useState } from "react";
 import { motion } from "framer-motion";
 import { AlertCircle, ImageOff, Search } from "lucide-react";
+import CalendarAction from "@/components/app/calendar-action";
 
 interface SearchResult {
   id: string;
@@ -10,22 +11,32 @@ interface SearchResult {
   category: string;
   snippet: string;
   image_signed_url: string | null;
+  is_actionable: boolean;
+  action_date: string | null;
+  action_title: string | null;
+  action_confirmed: boolean;
 }
 
 type Status = "idle" | "loading" | "success" | "error";
+type Mode = "semantic" | "entity";
 
-export default function ScreenshotSearch() {
+export interface ScreenshotSearchHandle {
+  search: (text: string) => void;
+}
+
+const ScreenshotSearch = forwardRef<ScreenshotSearchHandle>(function ScreenshotSearch(_props, ref) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [mode, setMode] = useState<Mode>("semantic");
+  const [entityName, setEntityName] = useState<string | null>(null);
   const [isDatabaseEmpty, setIsDatabaseEmpty] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmed = query.trim();
-    if (!trimmed || status === "loading") return;
+  async function runSearch(text: string) {
+    const trimmed = text.trim();
+    if (!trimmed) return;
 
     setStatus("loading");
     setErrorMessage(null);
@@ -46,6 +57,8 @@ export default function ScreenshotSearch() {
       }
 
       setResults(data.results ?? []);
+      setMode(data.mode === "entity" ? "entity" : "semantic");
+      setEntityName(data.entityName ?? null);
       setIsDatabaseEmpty(Boolean(data.isDatabaseEmpty));
       setHasSearched(true);
       setStatus("success");
@@ -53,6 +66,19 @@ export default function ScreenshotSearch() {
       setErrorMessage("Couldn't reach the server. Check your connection and try again.");
       setStatus("error");
     }
+  }
+
+  useImperativeHandle(ref, () => ({
+    search: (text: string) => {
+      setQuery(text);
+      void runSearch(text);
+    },
+  }));
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (status === "loading") return;
+    void runSearch(query);
   }
 
   return (
@@ -75,7 +101,7 @@ export default function ScreenshotSearch() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={'Search your screenshots — try "flight to San Francisco"'}
+            placeholder={'Search your screenshots — try "flight to San Francisco" or "everything from Rahul"'}
             aria-label="Search your screenshots"
             className="w-full bg-transparent text-[14px] text-ink placeholder:text-ink/35 focus:outline-none"
           />
@@ -134,44 +160,67 @@ export default function ScreenshotSearch() {
         )}
 
         {status === "success" && results.length > 0 && (
-          <motion.ul
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 lg:gap-4"
-          >
-            {results.map((result) => (
-              <li
-                key={result.id}
-                className="glass-surface overflow-hidden rounded-[14px]"
+          <div className="mt-6">
+            {mode === "entity" && entityName && (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="mb-3 text-[13.5px] font-medium text-ink"
               >
-                <div className="flex aspect-[4/3] w-full items-center justify-center bg-canvas/60">
-                  {result.image_signed_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={result.image_signed_url}
-                      alt={result.title}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <ImageOff className="h-5 w-5 text-ink/20" strokeWidth={1.75} />
-                  )}
-                </div>
-                <div className="p-3">
-                  <p className="truncate text-[12.5px] font-medium text-ink">{result.title}</p>
-                  <span className="mt-1.5 inline-block rounded-full border border-hairline-strong bg-white/50 px-2 py-0.5 text-[10px] font-medium text-secondary">
-                    {result.category}
-                  </span>
-                  {result.snippet && (
-                    <p className="mt-2 line-clamp-2 font-mono text-[11px] leading-snug text-secondary">
-                      {result.snippet}
-                    </p>
-                  )}
-                </div>
-              </li>
-            ))}
-          </motion.ul>
+                {entityName} — {results.length}{" "}
+                {results.length === 1 ? "screenshot" : "screenshots"}
+              </motion.p>
+            )}
+            <motion.ul
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 lg:gap-4"
+            >
+              {results.map((result) => (
+                <li
+                  key={result.id}
+                  className="glass-surface overflow-hidden rounded-[14px]"
+                >
+                  <div className="flex aspect-[4/3] w-full items-center justify-center bg-canvas/60">
+                    {result.image_signed_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={result.image_signed_url}
+                        alt={result.title}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <ImageOff className="h-5 w-5 text-ink/20" strokeWidth={1.75} />
+                    )}
+                  </div>
+                  <div className="p-3">
+                    <p className="truncate text-[12.5px] font-medium text-ink">{result.title}</p>
+                    <span className="mt-1.5 inline-block rounded-full border border-hairline-strong bg-white/50 px-2 py-0.5 text-[10px] font-medium text-secondary">
+                      {result.category}
+                    </span>
+                    {result.snippet && (
+                      <p className="mt-2 line-clamp-2 font-mono text-[11px] leading-snug text-secondary">
+                        {result.snippet}
+                      </p>
+                    )}
+                    {result.is_actionable && result.action_date && result.action_title && (
+                      <CalendarAction
+                        id={result.id}
+                        actionTitle={result.action_title}
+                        actionDate={result.action_date}
+                        confirmed={result.action_confirmed}
+                        variant="compact"
+                      />
+                    )}
+                  </div>
+                </li>
+              ))}
+            </motion.ul>
+          </div>
         )}
       </div>
     </div>
   );
-}
+});
+
+export default ScreenshotSearch;
