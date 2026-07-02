@@ -1,0 +1,140 @@
+import { randomUUID } from "crypto";
+import { NextResponse } from "next/server";
+import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { analyzeScreenshot, buildEmbeddingSource, embedText } from "@/lib/gemini";
+
+export const runtime = "nodejs";
+
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_BYTES = 8 * 1024 * 1024;
+const BUCKET = "screenshots";
+
+export async function POST(request: Request) {
+  let file: File;
+  try {
+    const formData = await request.formData();
+    const entry = formData.get("file");
+    if (!(entry instanceof File)) {
+      return NextResponse.json({ error: "No image was uploaded." }, { status: 400 });
+    }
+    file = entry;
+  } catch {
+    return NextResponse.json({ error: "Could not read the upload." }, { status: 400 });
+  }
+
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    return NextResponse.json(
+      { error: "Only JPG, PNG, and WEBP images are supported." },
+      { status: 400 }
+    );
+  }
+  if (file.size > MAX_BYTES) {
+    return NextResponse.json({ error: "That image is too large (max 8MB)." }, { status: 400 });
+  }
+
+  let supabase: ReturnType<typeof getSupabaseAdmin>;
+  try {
+    supabase = getSupabaseAdmin();
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json(
+      { error: "Storage isn't configured yet. Add your Supabase keys to .env.local." },
+      { status: 500 }
+    );
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const extension = file.type.split("/")[1] ?? "png";
+  const storagePath = `${randomUUID()}.${extension}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(BUCKET)
+    .upload(storagePath, buffer, { contentType: file.type, upsert: false });
+
+  if (uploadError) {
+    console.error("Supabase upload failed:", uploadError);
+    const missingBucket = /bucket not found/i.test(uploadError.message ?? "");
+    return NextResponse.json(
+      {
+        error: missingBucket
+          ? "The 'screenshots' storage bucket doesn't exist yet. Run supabase/schema.sql, then try again."
+          : "Couldn't store the image. Please try again.",
+      },
+      { status: 500 }
+    );
+  }
+
+  let analysis;
+  try {
+    const base64 = buffer.toString("base64");
+    analysis = await analyzeScreenshot(base64, file.type);
+  } catch (err) {
+    console.error("Gemini analysis failed:", err);
+    await supabase.storage.from(BUCKET).remove([storagePath]);
+    return NextResponse.json(
+      { error: "The AI couldn't read this screenshot. Try a clearer image." },
+      { status: 502 }
+    );
+  }
+
+  // Embedding failures are non-fatal — the screenshot is still saved and
+  // shown, it just won't surface in semantic search until it has one.
+  let embedding: number[] | null = null;
+  try {
+    const embeddingSource = buildEmbeddingSource(analysis);
+    if (embeddingSource) {
+      embedding = await embedText(embeddingSource, "RETRIEVAL_DOCUMENT");
+    }
+  } catch (err) {
+    console.error("Embedding generation failed:", err);
+  }
+
+  const { data: row, error: insertError } = await supabase
+    .from("screenshots")
+    .insert({
+      image_url: storagePath,
+      title: analysis.title,
+      category: analysis.category,
+      extracted_text: analysis.extracted_text,
+      key_details: analysis.key_details,
+      entities: analysis.entities,
+      embedding,
+    })
+    .select()
+    .single();
+
+  if (insertError) {
+    console.error("Supabase insert failed:", {
+      message: insertError.message,
+      details: insertError.details,
+      hint: insertError.hint,
+      code: insertError.code,
+    });
+    const missingSchema =
+      /relation .* does not exist|could not find the .* column|schema cache/i.test(
+        insertError.message ?? ""
+      );
+    return NextResponse.json(
+      {
+        error: missingSchema
+          ? "The database schema is out of date. Run supabase/schema.sql, then try again."
+          : "The screenshot was read, but saving the result failed.",
+      },
+      { status: 500 }
+    );
+  }
+
+  const { data: signedUrlData } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrl(storagePath, 3600);
+
+  return NextResponse.json({
+    id: row.id,
+    title: row.title,
+    category: row.category,
+    extracted_text: row.extracted_text,
+    key_details: row.key_details,
+    entities: row.entities,
+    image_signed_url: signedUrlData?.signedUrl ?? null,
+  });
+}
