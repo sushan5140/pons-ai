@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { getAuthenticatedUser } from "@/lib/supabase/auth-server";
 import { withRetry } from "@/lib/with-retry";
 
 export const runtime = "nodejs";
@@ -12,6 +13,11 @@ interface EntityRow {
 }
 
 export async function GET() {
+  const user = await getAuthenticatedUser();
+  if (!user) {
+    return NextResponse.json({ error: "Please sign in first." }, { status: 401 });
+  }
+
   let supabase: ReturnType<typeof getSupabaseAdmin>;
   try {
     supabase = getSupabaseAdmin();
@@ -23,7 +29,9 @@ export async function GET() {
     );
   }
 
-  const { data, error } = await withRetry(() => supabase.rpc("list_entities_with_counts"));
+  const { data, error } = await withRetry(() =>
+    supabase.rpc("list_entities_with_counts", { p_user_id: user.id })
+  );
 
   if (error) {
     console.error("list_entities_with_counts failed:", {

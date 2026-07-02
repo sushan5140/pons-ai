@@ -337,3 +337,255 @@ as $$
   order by s.created_at desc
   limit 50;
 $$;
+
+-- 7. Auth — every screenshot and entity belongs to the signed-in user who
+--    created it, so search/entities/actions only ever surface that user's
+--    own data. The app's API routes use the service-role key (bypasses
+--    RLS) and explicitly filter every query by the authenticated user's
+--    id — the RLS policies below are defense-in-depth for that same rule,
+--    in case anything ever queries with a user's own session instead.
+--
+--    NOTE: any screenshots/entities that existed before this migration
+--    have user_id = null and will not be visible to any signed-in user
+--    (queries filter by an exact match on user_id, and null never
+--    matches). If you have pre-auth data you want to keep, either delete
+--    it or manually UPDATE it with a real user_id after your first sign-in.
+alter table public.screenshots
+  add column if not exists user_id uuid references auth.users (id) on delete cascade;
+
+alter table public.entities
+  add column if not exists user_id uuid references auth.users (id) on delete cascade;
+
+-- Entities are now scoped per user, so uniqueness is per user too — two
+-- different users can each have their own "Rahul" without colliding.
+drop index if exists entities_name_lower_idx;
+create unique index if not exists entities_user_name_lower_idx
+  on public.entities (user_id, lower(name));
+
+create index if not exists screenshots_user_id_idx on public.screenshots (user_id);
+
+drop policy if exists "Users can view their own screenshots" on public.screenshots;
+create policy "Users can view their own screenshots"
+  on public.screenshots for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their own screenshots" on public.screenshots;
+create policy "Users can insert their own screenshots"
+  on public.screenshots for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their own screenshots" on public.screenshots;
+create policy "Users can update their own screenshots"
+  on public.screenshots for update
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can view their own entities" on public.entities;
+create policy "Users can view their own entities"
+  on public.entities for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their own entities" on public.entities;
+create policy "Users can insert their own entities"
+  on public.entities for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can view links for their own screenshots" on public.screenshot_entities;
+create policy "Users can view links for their own screenshots"
+  on public.screenshot_entities for select
+  using (
+    exists (
+      select 1 from public.screenshots s
+      where s.id = screenshot_id and s.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Users can insert links for their own screenshots" on public.screenshot_entities;
+create policy "Users can insert links for their own screenshots"
+  on public.screenshot_entities for insert
+  with check (
+    exists (
+      select 1 from public.screenshots s
+      where s.id = screenshot_id and s.user_id = auth.uid()
+    )
+  );
+
+-- match_screenshots, find_entity_screenshots, link_screenshot_entities, and
+-- list_entities_with_counts all need a p_user_id to scope to. Adding a
+-- parameter changes each function's signature, so the old versions are
+-- dropped before being redefined.
+drop function if exists public.match_screenshots (vector(768), int);
+
+create or replace function public.match_screenshots (
+  query_embedding vector(768),
+  match_count int default 5,
+  p_user_id uuid default null
+)
+returns table (
+  id uuid,
+  title text,
+  category text,
+  extracted_text text,
+  key_details jsonb,
+  entities jsonb,
+  image_url text,
+  is_actionable boolean,
+  action_date text,
+  action_title text,
+  action_location text,
+  action_confirmed boolean,
+  similarity float
+)
+language sql
+stable
+as $$
+  select
+    screenshots.id,
+    screenshots.title,
+    screenshots.category,
+    screenshots.extracted_text,
+    screenshots.key_details,
+    screenshots.entities,
+    screenshots.image_url,
+    screenshots.is_actionable,
+    screenshots.action_date,
+    screenshots.action_title,
+    screenshots.action_location,
+    screenshots.action_confirmed,
+    1 - (screenshots.embedding <=> query_embedding) as similarity
+  from public.screenshots
+  where screenshots.embedding is not null
+    and screenshots.user_id = p_user_id
+  order by screenshots.embedding <=> query_embedding
+  limit match_count;
+$$;
+
+drop function if exists public.find_entity_screenshots (text);
+
+create or replace function public.find_entity_screenshots (query_text text, p_user_id uuid)
+returns table (
+  entity_id uuid,
+  entity_name text,
+  screenshot_id uuid,
+  title text,
+  category text,
+  extracted_text text,
+  key_details jsonb,
+  image_url text,
+  is_actionable boolean,
+  action_date text,
+  action_title text,
+  action_location text,
+  action_confirmed boolean,
+  created_at timestamptz
+)
+language sql
+stable
+as $$
+  with matched_entity as (
+    select entities.id, entities.name
+    from public.entities
+    where entities.user_id = p_user_id
+      and (
+        query_text ilike '%' || entities.name || '%'
+        or exists (
+             select 1
+             from unnest(string_to_array(entities.name, ' ')) as word
+             where length(word) > 2
+               and query_text ~* ('\m' || word || '\M')
+           )
+      )
+    order by length(entities.name) desc
+    limit 1
+  )
+  select
+    matched_entity.id as entity_id,
+    matched_entity.name as entity_name,
+    s.id as screenshot_id,
+    s.title,
+    s.category,
+    s.extracted_text,
+    s.key_details,
+    s.image_url,
+    s.is_actionable,
+    s.action_date,
+    s.action_title,
+    s.action_location,
+    s.action_confirmed,
+    s.created_at
+  from matched_entity
+  join public.screenshot_entities se on se.entity_id = matched_entity.id
+  join public.screenshots s on s.id = se.screenshot_id
+  where s.user_id = p_user_id
+  order by s.created_at desc
+  limit 50;
+$$;
+
+drop function if exists public.link_screenshot_entities (uuid, jsonb);
+
+create or replace function public.link_screenshot_entities (
+  p_screenshot_id uuid,
+  p_entities jsonb,
+  p_user_id uuid
+)
+returns void
+language plpgsql
+as $$
+declare
+  entity jsonb;
+  clean_name text;
+  entity_type text;
+  found_id uuid;
+begin
+  for entity in select * from jsonb_array_elements(p_entities)
+  loop
+    clean_name := trim(entity->>'name');
+    if clean_name is null or clean_name = '' then
+      continue;
+    end if;
+    entity_type := coalesce(nullif(entity->>'type', ''), 'other');
+
+    select id into found_id from public.entities
+      where user_id = p_user_id and lower(name) = lower(clean_name) limit 1;
+
+    if found_id is null then
+      insert into public.entities (name, type, user_id)
+      values (clean_name, entity_type, p_user_id)
+      on conflict (user_id, (lower(name))) do nothing
+      returning id into found_id;
+
+      if found_id is null then
+        select id into found_id from public.entities
+          where user_id = p_user_id and lower(name) = lower(clean_name) limit 1;
+      end if;
+    end if;
+
+    insert into public.screenshot_entities (screenshot_id, entity_id)
+    values (p_screenshot_id, found_id)
+    on conflict (screenshot_id, entity_id) do nothing;
+  end loop;
+end;
+$$;
+
+drop function if exists public.list_entities_with_counts ();
+
+create or replace function public.list_entities_with_counts (p_user_id uuid)
+returns table (
+  id uuid,
+  name text,
+  type text,
+  screenshot_count bigint
+)
+language sql
+stable
+as $$
+  select
+    e.id,
+    e.name,
+    e.type,
+    count(se.screenshot_id) as screenshot_count
+  from public.entities e
+  left join public.screenshot_entities se on se.entity_id = e.id
+  where e.user_id = p_user_id
+  group by e.id, e.name, e.type
+  order by screenshot_count desc, e.name asc;
+$$;

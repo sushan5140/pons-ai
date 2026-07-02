@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { getAuthenticatedUser } from "@/lib/supabase/auth-server";
 import { analyzeScreenshot, buildEmbeddingSource, embedText } from "@/lib/gemini";
 import { withRetry } from "@/lib/with-retry";
 
@@ -11,6 +12,11 @@ const MAX_BYTES = 8 * 1024 * 1024;
 const BUCKET = "screenshots";
 
 export async function POST(request: Request) {
+  const user = await getAuthenticatedUser();
+  if (!user) {
+    return NextResponse.json({ error: "Please sign in first." }, { status: 401 });
+  }
+
   let file: File;
   try {
     const formData = await request.formData();
@@ -106,6 +112,7 @@ export async function POST(request: Request) {
         action_title: analysis.action_title,
         action_location: analysis.action_location,
         reminder_minutes_before: analysis.reminder_minutes_before,
+        user_id: user.id,
       })
       .select()
       .single()
@@ -140,6 +147,7 @@ export async function POST(request: Request) {
       supabase.rpc("link_screenshot_entities", {
         p_screenshot_id: row.id,
         p_entities: analysis.entities,
+        p_user_id: user.id,
       })
     );
     if (linkError) {

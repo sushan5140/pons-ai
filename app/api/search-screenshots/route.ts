@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { getAuthenticatedUser } from "@/lib/supabase/auth-server";
 import { embedText } from "@/lib/gemini";
 import { withRetry } from "@/lib/with-retry";
 
@@ -61,6 +62,11 @@ async function withSignedUrl(
 }
 
 export async function POST(request: Request) {
+  const user = await getAuthenticatedUser();
+  if (!user) {
+    return NextResponse.json({ error: "Please sign in first." }, { status: 401 });
+  }
+
   let query: string;
   try {
     const body = await request.json();
@@ -88,7 +94,7 @@ export async function POST(request: Request) {
   // screenshot linked to that entity, not just the one closest by embedding.
   // A missing/empty match falls straight through to semantic search below.
   const { data: entityMatches, error: entityError } = await withRetry(() =>
-    supabase.rpc("find_entity_screenshots", { query_text: query })
+    supabase.rpc("find_entity_screenshots", { query_text: query, p_user_id: user.id })
   );
 
   if (entityError) {
@@ -128,7 +134,10 @@ export async function POST(request: Request) {
   }
 
   const { count, error: countError } = await withRetry(() =>
-    supabase.from("screenshots").select("id", { count: "exact", head: true })
+    supabase
+      .from("screenshots")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
   );
 
   if (countError) {
@@ -160,6 +169,7 @@ export async function POST(request: Request) {
     supabase.rpc("match_screenshots", {
       query_embedding: queryEmbedding,
       match_count: MATCH_COUNT,
+      p_user_id: user.id,
     })
   );
 
