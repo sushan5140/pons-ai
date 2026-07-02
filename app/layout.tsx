@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Fraunces, IBM_Plex_Mono } from "next/font/google";
 import SmoothScrollProvider from "@/components/providers/smooth-scroll-provider";
 import Navbar from "@/components/layout/navbar";
 import Footer from "@/components/layout/footer";
@@ -12,14 +12,29 @@ const inter = Inter({
   display: "swap",
 });
 
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-fraunces",
+  weight: ["400", "500", "600"],
+  style: ["normal", "italic"],
+  display: "swap",
+});
+
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  variable: "--font-plex-mono",
+  weight: ["400", "500"],
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "Aura — The Intelligent Parent Dashboard",
+  title: "pons — Your screenshots, remembered",
   description:
-    "Aura organizes every school update — homework, exams, circulars, PDFs, and reminders — into one intelligent dashboard for parents.",
+    "pons turns your screenshots into an intelligent memory system — understanding, connecting, and acting on what you save, so nothing gets lost in the camera roll again.",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#EEF0EF",
+  themeColor: "#F5F8FA",
 };
 
 export default function RootLayout({
@@ -28,14 +43,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} h-full`}>
-      <head>
-        <link rel="preconnect" href="https://api.fontshare.com" />
-        <link
-          href="https://api.fontshare.com/v2/css?f[]=general-sans@700,800,500,400&display=swap"
-          rel="stylesheet"
-        />
-      </head>
+    <html
+      lang="en"
+      className={`${inter.variable} ${fraunces.variable} ${plexMono.variable} h-full`}
+    >
       <body className="min-h-full bg-canvas text-ink antialiased">
         <div className="grain-overlay" />
         <SmoothScrollProvider>
