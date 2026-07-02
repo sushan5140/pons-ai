@@ -1,5 +1,57 @@
 import "server-only";
 
+// Multiple API keys let the app keep working if one hits its free-tier
+// quota. Keys only help if they're on genuinely separate Google accounts/
+// Cloud projects — keys from the same project share one quota pool and
+// will all run out together. GEMINI_API_KEY is required; GEMINI_API_KEY_2,
+// GEMINI_API_KEY_3, ... are optional and picked up in order.
+function getGeminiApiKeys(): string[] {
+  const keys: string[] = [];
+  const primary = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY;
+  if (primary) keys.push(primary);
+
+  for (let i = 2; ; i++) {
+    const key = process.env[`GEMINI_API_KEY_${i}`];
+    if (!key) break;
+    keys.push(key);
+  }
+
+  return keys;
+}
+
+/**
+ * Calls the Gemini API, retrying with the next configured key only on a
+ * 429 (quota exceeded) — any other error (bad request, server error) is
+ * returned as-is, since switching keys wouldn't fix it.
+ */
+async function fetchGeminiWithKeyFallback(
+  buildUrl: (apiKey: string) => string,
+  init: RequestInit
+): Promise<Response> {
+  const keys = getGeminiApiKeys();
+  if (keys.length === 0) {
+    throw new Error("GEMINI_API_KEY is not configured.");
+  }
+
+  let lastResponse: Response | null = null;
+  let lastError: unknown = null;
+
+  for (const key of keys) {
+    try {
+      const response = await fetch(buildUrl(key), init);
+      if (response.status !== 429) {
+        return response;
+      }
+      lastResponse = response;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  if (lastResponse) return lastResponse;
+  throw lastError instanceof Error ? lastError : new Error("All Gemini API keys failed.");
+}
+
 export const SCREENSHOT_CATEGORIES = [
   "Shopping",
   "Travel",
@@ -115,14 +167,11 @@ export async function analyzeScreenshot(
   base64Image: string,
   mimeType: string
 ): Promise<ScreenshotAnalysis> {
-  const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY;
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is not configured.");
-  }
   const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+  const response = await fetchGeminiWithKeyFallback(
+    (apiKey) =>
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -294,14 +343,11 @@ export async function embedText(
   text: string,
   taskType: EmbeddingTaskType
 ): Promise<number[]> {
-  const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY;
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is not configured.");
-  }
   const model = process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-001";
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent?key=${apiKey}`,
+  const response = await fetchGeminiWithKeyFallback(
+    (apiKey) =>
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent?key=${apiKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
