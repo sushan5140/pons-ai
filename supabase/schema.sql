@@ -33,6 +33,15 @@ create extension if not exists vector;
 alter table public.screenshots
   add column if not exists embedding vector(768);
 
+-- This function's return columns grow twice more later in this file
+-- (sections 6 and 7). CREATE OR REPLACE can't change a function's return
+-- type, only its body — so on a database that already has a later version
+-- of this 2-argument signature installed (from a previous partial run),
+-- recreating the original shape here would fail with "cannot change
+-- return type of existing function". Dropping first makes this safe to
+-- run regardless of the database's current state.
+drop function if exists public.match_screenshots (vector(768), int);
+
 create or replace function public.match_screenshots (
   query_embedding vector(768),
   match_count int default 5
@@ -149,6 +158,13 @@ $$;
 -- usually less relevant than a longer name that only matched by shared
 -- word. Returns zero rows if nothing matches, so the app can fall back to
 -- semantic search.
+--
+-- Same "cannot change return type" risk as match_screenshots above (this
+-- 1-argument signature also gets redefined with more columns later in
+-- this file) — drop first so re-running this file is safe from any prior
+-- partial state.
+drop function if exists public.find_entity_screenshots (text);
+
 create or replace function public.find_entity_screenshots (query_text text)
 returns table (
   entity_id uuid,
