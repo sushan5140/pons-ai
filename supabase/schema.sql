@@ -589,3 +589,49 @@ as $$
   group by e.id, e.name, e.type
   order by screenshot_count desc, e.name asc;
 $$;
+
+-- 8. Usage limits & plans. profiles.plan is the one field that decides a
+--    user's monthly upload limit ('free' = 5, 'pro' = 25 — see
+--    PLAN_LIMITS in lib/usage.ts, which is the single place that logic
+--    lives). To manually grant Pro for a demo/test account, open
+--    Table Editor → profiles → find that user's row (by id, which matches
+--    their auth.users id — cross-reference by email in Authentication →
+--    Users) → set plan to 'pro'. Nothing else needs to change; the limit
+--    check reads this column directly on every upload.
+create table if not exists public.profiles (
+  id uuid primary key references auth.users (id) on delete cascade,
+  plan text not null default 'free' check (plan in ('free', 'pro')),
+  created_at timestamptz not null default now()
+);
+
+alter table public.profiles enable row level security;
+
+drop policy if exists "Users can view their own profile" on public.profiles;
+create policy "Users can view their own profile"
+  on public.profiles for select
+  using (auth.uid() = id);
+
+-- Auto-creates a profile row (defaulting to 'free') the moment someone
+-- signs up, so every authenticated user always has one to look up.
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  insert into public.profiles (id, plan)
+  values (new.id, 'free')
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+-- Backfill for anyone who signed in before this migration existed.
+insert into public.profiles (id, plan)
+select id, 'free' from auth.users
+on conflict (id) do nothing;

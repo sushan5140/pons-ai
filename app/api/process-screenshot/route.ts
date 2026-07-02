@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { getAuthenticatedUser } from "@/lib/supabase/auth-server";
 import { analyzeScreenshot, buildEmbeddingSource, embedText } from "@/lib/gemini";
 import { withRetry } from "@/lib/with-retry";
+import { checkUsageLimit } from "@/lib/usage";
 
 export const runtime = "nodejs";
 
@@ -15,6 +16,23 @@ export async function POST(request: Request) {
   const user = await getAuthenticatedUser();
   if (!user) {
     return NextResponse.json({ error: "Please sign in first." }, { status: 401 });
+  }
+
+  // Checked before any Gemini/storage work — a blocked upload shouldn't
+  // waste an API call or storage write.
+  const usage = await checkUsageLimit(user.id);
+  if (!usage.allowed) {
+    const planLabel = usage.plan === "free" ? "free" : "Pro";
+    return NextResponse.json(
+      {
+        error: `You've used all ${usage.limit} ${planLabel} uploads this month.${
+          usage.plan === "free" ? " Upgrade to Pro for 25/month." : ""
+        }`,
+        usageLimitReached: true,
+        usage,
+      },
+      { status: 403 }
+    );
   }
 
   let file: File;

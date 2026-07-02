@@ -2,7 +2,8 @@
 
 import { useCallback, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertCircle, ChevronDown, UploadCloud, X } from "lucide-react";
+import { AlertCircle, ChevronDown, Sparkles, UploadCloud, X } from "lucide-react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import CalendarAction from "@/components/app/calendar-action";
 
@@ -32,7 +33,7 @@ interface UploadItem {
   clientId: string;
   file: File;
   previewUrl: string;
-  status: "processing" | "success" | "error";
+  status: "processing" | "success" | "error" | "limit-reached";
   errorMessage: string | null;
   result: AnalysisResult | null;
   expanded: boolean;
@@ -85,7 +86,7 @@ export default function ScreenshotUploader({
 
         if (!response.ok || !data) {
           updateItem(clientId, {
-            status: "error",
+            status: data?.usageLimitReached ? "limit-reached" : "error",
             errorMessage: data?.error ?? "Something went wrong. Please try again.",
           });
           return;
@@ -295,6 +296,21 @@ export default function ScreenshotUploader({
                           Try again
                         </button>
                       </div>
+                    </div>
+                  )}
+
+                  {item.status === "limit-reached" && (
+                    <div role="alert" className="rounded-[14px] border border-hairline-strong bg-accent/10 p-3.5">
+                      <div className="flex items-start gap-2.5">
+                        <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-ink/50" strokeWidth={1.75} />
+                        <p className="text-[13px] leading-relaxed text-ink/80">{item.errorMessage}</p>
+                      </div>
+                      <Link
+                        href="/app/upgrade"
+                        className="mt-3 inline-flex items-center justify-center rounded-[10px] bg-ink px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-ink/85"
+                      >
+                        See Pro plan
+                      </Link>
                     </div>
                   )}
 
