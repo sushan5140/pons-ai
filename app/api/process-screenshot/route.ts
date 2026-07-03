@@ -5,6 +5,7 @@ import { getAuthenticatedUser } from "@/lib/supabase/auth-server";
 import { analyzeScreenshot, buildEmbeddingSource, embedText } from "@/lib/gemini";
 import { withRetry } from "@/lib/with-retry";
 import { checkUsageLimit } from "@/lib/usage";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -12,10 +13,24 @@ const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_BYTES = 8 * 1024 * 1024;
 const BUCKET = "screenshots";
 
+// Separate from the monthly plan limit in lib/usage.ts — this catches
+// rapid-fire/automated requests within a short window, regardless of how
+// many uploads the user has left for the month.
+const UPLOAD_RATE_LIMIT = 5;
+const UPLOAD_RATE_WINDOW_MS = 60 * 1000;
+
 export async function POST(request: Request) {
   const user = await getAuthenticatedUser();
   if (!user) {
     return NextResponse.json({ error: "Please sign in first." }, { status: 401 });
+  }
+
+  const rateLimit = checkRateLimit(`upload:${user.id}`, UPLOAD_RATE_LIMIT, UPLOAD_RATE_WINDOW_MS);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "You're uploading too quickly — please wait a moment and try again." },
+      { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } }
+    );
   }
 
   // Checked before any Gemini/storage work — a blocked upload shouldn't

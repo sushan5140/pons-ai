@@ -1,39 +1,15 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import { useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
 import { ArrowRight, Check } from "lucide-react";
 import MagneticButton from "@/components/ui/magnetic-button";
 import Reveal from "@/components/ui/reveal";
 import { useGoogleSignIn } from "@/lib/hooks/use-google-sign-in";
-
-const EntityGraph = dynamic(() => import("@/components/three/entity-graph"), {
-  ssr: false,
-  loading: () => <div className="h-full w-full animate-pulse rounded-[24px] bg-white/25" />,
-});
+import HeroWidgetGrid from "./hero-widget-grid";
 
 const CHIPS = ["Natural language search", "AI reminders", "Connected memory"];
 
 export default function Hero() {
   const { signIn, loading } = useGoogleSignIn();
-  const graphWrapRef = useRef<HTMLDivElement>(null);
-  // Starts true (the hero graph is above the fold on first paint) so the
-  // Canvas never sits at zero rendered frames waiting on the async
-  // IntersectionObserver callback — it only flips false once we can
-  // actually confirm the graph has scrolled out of view.
-  const [inView, setInView] = useState(true);
-
-  useEffect(() => {
-    const el = graphWrapRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setInView(entry.isIntersecting),
-      { rootMargin: "-10% 0px -10% 0px" }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
 
   return (
     <section
@@ -110,21 +86,9 @@ export default function Hero() {
           </Reveal>
         </div>
 
-        {/* right — stationary entity graph */}
-        <div
-          ref={graphWrapRef}
-          className="relative h-[380px] w-full sm:h-[460px] lg:h-[640px]"
-          role="img"
-          aria-label="A graph showing screenshots connected by shared people, places, and events"
-        >
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-            className="h-full w-full"
-          >
-            <EntityGraph active={inView} />
-          </motion.div>
+        {/* right — glanceable widget dashboard */}
+        <div className="relative w-full">
+          <HeroWidgetGrid />
         </div>
       </div>
     </section>

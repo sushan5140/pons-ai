@@ -651,3 +651,21 @@ create trigger on_auth_user_created
 insert into public.profiles (id, plan)
 select id, 'free' from auth.users
 on conflict (id) do nothing;
+
+-- 9. Feedback — a lightweight channel for bug reports/feature requests from
+--    inside the app, in place of wiring up outbound email at this stage.
+--    user_id is nullable since feedback can come from a signed-out visitor
+--    on the landing page too, and set null (not cascade-deleted) so
+--    feedback history survives a user later deleting their account.
+create table if not exists public.feedback (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  user_id uuid references auth.users (id) on delete set null,
+  email text,
+  message text not null
+);
+
+-- Only the app's server-side route (using the service-role key) writes or
+-- reads this table — RLS enabled with no policies means no client-side
+-- session, however it's obtained, can read other users' feedback.
+alter table public.feedback enable row level security;

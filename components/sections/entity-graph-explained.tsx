@@ -58,9 +58,30 @@ export default function EntityGraphExplained() {
 
         <Reveal delay={0.15}>
           <div className="mx-auto mt-12 flex max-w-md items-center justify-center gap-3">
-            <MiniScreenshot title="Flight · SFO" tag="Nov 14" className="w-28 shrink-0" />
-            <MiniScreenshot title="Dinner · Roka" tag="$186" className="w-28 shrink-0" />
-            <MiniScreenshot title="Hotel · SF" tag="3 nights" className="w-28 shrink-0" />
+            <MiniScreenshot
+              title="Flight · SFO"
+              kind="flight"
+              detail={{ route: "DEL → SFO", gate: "27", seat: "9C" }}
+              className="w-28 shrink-0"
+            />
+            <MiniScreenshot
+              title="Dinner · Roka"
+              kind="restaurant"
+              detail={{
+                items: [
+                  { name: "Robata Set", price: "$142" },
+                  { name: "Sake Pairing", price: "$44" },
+                ],
+                total: "$186",
+              }}
+              className="w-28 shrink-0"
+            />
+            <MiniScreenshot
+              title="Hotel · SF"
+              kind="hotel"
+              detail={{ room: "King Room", dates: "3 nights" }}
+              className="w-28 shrink-0"
+            />
           </div>
         </Reveal>
 

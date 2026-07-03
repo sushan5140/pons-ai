@@ -2,17 +2,76 @@
 
 import { motion } from "framer-motion";
 import Reveal from "@/components/ui/reveal";
-import { MiniScreenshot } from "@/components/ui/mini-screenshot";
+import { MiniScreenshot, type ScreenshotDetail, type ScreenshotKind } from "@/components/ui/mini-screenshot";
 
-const TIMELINE = [
-  { day: "Day 1", title: "Flight · NRT" },
-  { day: "Day 1", title: "Hotel · Shinjuku" },
-  { day: "Day 2", title: "Train · Shinkansen" },
-  { day: "Day 2", title: "Restaurant · Ichiran" },
-  { day: "Day 3", title: "Shopping · Uniqlo" },
-  { day: "Day 3", title: "Maps · Fushimi Inari" },
-  { day: "Day 4", title: "Receipt · Dinner" },
-  { day: "Day 4", title: "Photos · Osaka" },
+const TIMELINE: {
+  day: string;
+  title: string;
+  tag?: string;
+  kind: ScreenshotKind;
+  detail: ScreenshotDetail;
+}[] = [
+  {
+    day: "Day 1",
+    title: "Flight · NRT",
+    kind: "flight",
+    detail: { route: "DEL → NRT", gate: "42", seat: "14A" },
+  },
+  {
+    day: "Day 1",
+    title: "Hotel · Shinjuku",
+    kind: "hotel",
+    detail: { room: "Deluxe Twin", dates: "Nov 14 – Nov 17" },
+  },
+  {
+    day: "Day 2",
+    title: "Train · Shinkansen",
+    kind: "train",
+    detail: { route: "Tokyo → Kyoto", seat: "Car 5 · Seat 12A" },
+  },
+  {
+    day: "Day 2",
+    title: "Restaurant · Ichiran",
+    kind: "restaurant",
+    detail: {
+      items: [
+        { name: "Tonkotsu Ramen", price: "¥980" },
+        { name: "Gyoza", price: "¥480" },
+      ],
+      total: "¥1,460",
+    },
+  },
+  {
+    day: "Day 3",
+    title: "Shopping · Uniqlo",
+    kind: "shopping",
+    detail: {
+      items: [
+        { name: "Oversized Tee", price: "¥2,990" },
+        { name: "Fleece Jacket", price: "¥5,990" },
+      ],
+      total: "¥8,980",
+    },
+  },
+  {
+    day: "Day 3",
+    title: "Maps · Fushimi Inari",
+    kind: "maps",
+    detail: { meta: "4.6 ★ · 12 min walk" },
+  },
+  {
+    day: "Day 4",
+    title: "Receipt · Dinner",
+    kind: "receipt",
+    detail: {
+      items: [
+        { name: "Wagyu Set", price: "¥4,200" },
+        { name: "Sake", price: "¥1,100" },
+      ],
+      total: "¥5,300",
+    },
+  },
+  { day: "Day 4", title: "Photos · Osaka", kind: "photos", detail: {} },
 ];
 
 export default function RealExample() {
@@ -54,7 +113,13 @@ export default function RealExample() {
                 <span className="relative z-10 mb-3 rounded-full border border-hairline-strong bg-canvas px-2 py-0.5 font-mono text-[10.5px] text-secondary">
                   {item.day}
                 </span>
-                <MiniScreenshot title={item.title} className="w-full" />
+                <MiniScreenshot
+                  title={item.title}
+                  tag={item.tag}
+                  kind={item.kind}
+                  detail={item.detail}
+                  className="w-full"
+                />
               </motion.div>
             ))}
           </div>
