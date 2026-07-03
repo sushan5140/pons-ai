@@ -6,7 +6,7 @@ import MagneticButton from "@/components/ui/magnetic-button";
 
 export default function FinalCTA() {
   return (
-    <section className="relative overflow-hidden px-6 py-32 sm:py-40">
+    <section className="relative overflow-hidden px-6 py-14 sm:py-20">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-1/2 top-1/2 h-[520px] w-[900px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[image:var(--gradient-brand)] opacity-[0.14] blur-[140px]" />
         <div className="absolute inset-0 grid-texture opacity-40" />

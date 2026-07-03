@@ -2,83 +2,43 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion, useInView, useReducedMotion } from "framer-motion";
-import { ArrowRight, Check, Play } from "lucide-react";
+import { motion } from "framer-motion";
+import { ArrowRight, Check } from "lucide-react";
 import MagneticButton from "@/components/ui/magnetic-button";
 import Reveal from "@/components/ui/reveal";
-import { DEMO_ANSWER, DEMO_QUERY } from "@/components/three/entity-graph-data";
-import type { GraphPhase } from "@/components/three/entity-graph";
+import { useGoogleSignIn } from "@/lib/hooks/use-google-sign-in";
 
-const EntityGraph = dynamic(() => import("@/components/three/entity-graph"), { ssr: false });
-
-const SEQUENCE: GraphPhase[] = ["idle", "typing", "highlight", "converge", "answer"];
-const TIMINGS: Record<GraphPhase, number> = {
-  idle: 2400,
-  typing: 1300,
-  highlight: 900,
-  converge: 1300,
-  answer: 3600,
-};
+const EntityGraph = dynamic(() => import("@/components/three/entity-graph"), {
+  ssr: false,
+  loading: () => <div className="h-full w-full animate-pulse rounded-[24px] bg-white/25" />,
+});
 
 const CHIPS = ["Natural language search", "AI reminders", "Connected memory"];
 
-function useGraphScript(reducedMotion: boolean) {
-  const [phase, setPhase] = useState<GraphPhase>(reducedMotion ? "answer" : "idle");
-  const [typed, setTyped] = useState(reducedMotion ? DEMO_QUERY : "");
+export default function Hero() {
+  const { signIn, loading } = useGoogleSignIn();
+  const graphWrapRef = useRef<HTMLDivElement>(null);
+  // Starts true (the hero graph is above the fold on first paint) so the
+  // Canvas never sits at zero rendered frames waiting on the async
+  // IntersectionObserver callback — it only flips false once we can
+  // actually confirm the graph has scrolled out of view.
+  const [inView, setInView] = useState(true);
 
   useEffect(() => {
-    if (reducedMotion) return;
-    let cancelled = false;
-    let index = 0;
-    let typeTimer: ReturnType<typeof setTimeout>;
-    let stepTimer: ReturnType<typeof setTimeout>;
-
-    function type() {
-      let i = 0;
-      setTyped("");
-      const step = () => {
-        if (cancelled) return;
-        i += 1;
-        setTyped(DEMO_QUERY.slice(0, i));
-        if (i < DEMO_QUERY.length) typeTimer = setTimeout(step, 38);
-      };
-      step();
-    }
-
-    function run() {
-      if (cancelled) return;
-      const current = SEQUENCE[index];
-      setPhase(current);
-      if (current === "typing") type();
-      if (current === "idle") setTyped("");
-      stepTimer = setTimeout(() => {
-        index = (index + 1) % SEQUENCE.length;
-        run();
-      }, TIMINGS[current]);
-    }
-
-    run();
-    return () => {
-      cancelled = true;
-      clearTimeout(typeTimer);
-      clearTimeout(stepTimer);
-    };
-  }, [reducedMotion]);
-
-  return { phase, typed };
-}
-
-export default function Hero() {
-  const reducedMotion = useReducedMotion() ?? false;
-  const { phase, typed } = useGraphScript(reducedMotion);
-  const graphWrapRef = useRef<HTMLDivElement>(null);
-  const inView = useInView(graphWrapRef, { margin: "-10% 0px -10% 0px" });
-  const showAnswer = phase === "answer";
+    const el = graphWrapRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setInView(entry.isIntersecting),
+      { rootMargin: "-10% 0px -10% 0px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <section
       id="product"
-      className="relative flex min-h-[92vh] items-center overflow-hidden px-6 pb-16 pt-36 lg:min-h-screen lg:pt-40"
+      className="relative flex min-h-[92vh] scroll-mt-28 items-center overflow-hidden px-6 pb-16 pt-40 lg:min-h-screen lg:pt-44"
     >
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 grid-texture opacity-40" />
@@ -113,18 +73,11 @@ export default function Hero() {
           <Reveal delay={0.32}>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-4 lg:justify-start">
               <MagneticButton
-                href="/app"
+                onClick={signIn}
                 className="bg-ink text-white shadow-[0_16px_32px_-12px_rgba(19,33,46,0.4)] hover:bg-ink/85"
               >
-                Try the Demo
+                {loading ? "Redirecting…" : "Get Started"}
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </MagneticButton>
-              <MagneticButton
-                className="border border-hairline-strong bg-white/40 text-ink hover:bg-white/70"
-                strength={0.25}
-              >
-                <Play className="h-3.5 w-3.5" />
-                Watch 2-minute Demo
               </MagneticButton>
             </div>
           </Reveal>
@@ -157,43 +110,21 @@ export default function Hero() {
           </Reveal>
         </div>
 
-        {/* right — dominant entity graph */}
+        {/* right — stationary entity graph */}
         <div
           ref={graphWrapRef}
           className="relative h-[380px] w-full sm:h-[460px] lg:h-[640px]"
           role="img"
-          aria-label="An interactive graph showing screenshots connected by shared people, places, and events"
+          aria-label="A graph showing screenshots connected by shared people, places, and events"
         >
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center">
-            <div className="glass-surface flex min-w-[240px] items-center gap-2 rounded-full px-5 py-2.5">
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-hover" />
-              <span className="font-mono text-[12.5px] text-ink/80 sm:text-[13px]">
-                {typed || " "}
-                <span
-                  aria-hidden
-                  className="ml-0.5 inline-block h-[13px] w-[1.5px] animate-pulse bg-ink/40 align-middle"
-                />
-              </span>
-            </div>
-          </div>
-
-          <EntityGraph phase={phase} reducedMotion={reducedMotion} active={inView} />
-
-          <AnimatePresence>
-            {showAnswer && (
-              <motion.div
-                initial={{ opacity: 0, y: 12, filter: "blur(6px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                exit={{ opacity: 0, y: 8, filter: "blur(6px)" }}
-                transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                className="glass-surface pointer-events-none absolute inset-x-4 bottom-2 z-20 mx-auto max-w-md rounded-[16px] px-5 py-3.5 text-center sm:bottom-6"
-              >
-                <p className="text-[13.5px] leading-relaxed text-ink/80 sm:text-[14px]">
-                  {DEMO_ANSWER}
-                </p>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            className="h-full w-full"
+          >
+            <EntityGraph active={inView} />
+          </motion.div>
         </div>
       </div>
     </section>

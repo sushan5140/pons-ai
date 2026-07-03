@@ -41,6 +41,7 @@
 html {
   background: var(--color-canvas);
   scroll-behavior: auto;
+  overflow-x: hidden;
 }
 
 html.lenis {

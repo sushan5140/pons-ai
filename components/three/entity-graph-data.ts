@@ -97,8 +97,3 @@ export const TIER_NODE_IDS: Record<"full" | "reduced" | "minimal", string[]> = {
   ],
   minimal: ["flight-rahul", "dinner-rahul", "adidas-order", "mom-chat"],
 };
-
-export const DEMO_QUERY = "Everything from Rahul";
-export const DEMO_HIGHLIGHT_IDS = ["flight-rahul", "dinner-rahul"];
-export const DEMO_ANSWER =
-  "2 screenshots from Rahul — a flight to San Francisco and dinner at Roka the night before.";

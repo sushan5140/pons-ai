@@ -42,7 +42,7 @@ function labelOffset(node: (typeof NODES)[number]) {
 
 export default function EntityGraphExplained() {
   return (
-    <section className="relative overflow-hidden px-6 py-24 sm:py-32">
+    <section className="relative overflow-hidden px-6 py-8 sm:py-12">
       <div className="pointer-events-none absolute inset-0 grid-texture opacity-30" />
 
       <div className="relative mx-auto max-w-4xl">
@@ -86,7 +86,7 @@ export default function EntityGraphExplained() {
                   strokeWidth={1.5}
                   initial={{ pathLength: 0, opacity: 0 }}
                   whileInView={{ pathLength: 1, opacity: 0.8 }}
-                  viewport={{ once: true, margin: "-15% 0px" }}
+                  viewport={{ once: true, margin: "0px 0px -5% 0px" }}
                   transition={{ duration: 0.6, delay: 0.1 + i * 0.1, ease: [0.16, 1, 0.3, 1] }}
                 />
               );
@@ -106,7 +106,7 @@ export default function EntityGraphExplained() {
                   strokeDasharray="3 4"
                   initial={{ pathLength: 0, opacity: 0 }}
                   whileInView={{ pathLength: 1, opacity: 0.55 }}
-                  viewport={{ once: true, margin: "-15% 0px" }}
+                  viewport={{ once: true, margin: "0px 0px -5% 0px" }}
                   transition={{ duration: 0.6, delay: 0.9 + i * 0.12, ease: [0.16, 1, 0.3, 1] }}
                 />
               );
@@ -118,7 +118,7 @@ export default function EntityGraphExplained() {
                   key={node.id}
                   initial={{ opacity: 0, scale: 0.4 }}
                   whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true, margin: "-15% 0px" }}
+                  viewport={{ once: true, margin: "0px 0px -5% 0px" }}
                   transition={{ duration: 0.45, delay: i * 0.1, ease: [0.16, 1, 0.3, 1] }}
                 >
                   <circle cx={node.x} cy={node.y} r={node.r} fill={node.fill} />

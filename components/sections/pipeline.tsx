@@ -22,7 +22,7 @@ const OUTPUTS = [
 
 export default function Pipeline() {
   return (
-    <section className="relative border-y border-hairline px-6 py-24 sm:py-32">
+    <section className="relative border-y border-hairline px-6 py-8 sm:py-12">
       <div className="mx-auto max-w-5xl">
         <Reveal className="mx-auto max-w-lg text-center">
           <h2 className="text-balance font-display text-[28px] font-medium leading-[1.2] tracking-[-0.01em] text-ink sm:text-[36px]">
@@ -40,7 +40,7 @@ export default function Pipeline() {
               <motion.div
                 initial={{ opacity: 0, y: 16 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-15% 0px" }}
+                viewport={{ once: true, margin: "0px 0px -5% 0px" }}
                 transition={{ duration: 0.6, delay: i * 0.15, ease: [0.16, 1, 0.3, 1] }}
                 className="flex w-[150px] flex-col items-center text-center"
               >
@@ -57,7 +57,7 @@ export default function Pipeline() {
                 <motion.div
                   initial={{ opacity: 0 }}
                   whileInView={{ opacity: 1 }}
-                  viewport={{ once: true, margin: "-15% 0px" }}
+                  viewport={{ once: true, margin: "0px 0px -5% 0px" }}
                   transition={{ duration: 0.4, delay: i * 0.15 + 0.25 }}
                   className="my-2 text-accent-hover lg:mx-1 lg:mt-6"
                   aria-hidden
@@ -72,7 +72,7 @@ export default function Pipeline() {
         <motion.div
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
-          viewport={{ once: true, margin: "-15% 0px" }}
+          viewport={{ once: true, margin: "0px 0px -5% 0px" }}
           transition={{ duration: 0.5, delay: 0.7 }}
           className="mx-auto mt-14 flex w-fit flex-col items-center"
         >
@@ -86,7 +86,7 @@ export default function Pipeline() {
                 key={output.label}
                 initial={{ opacity: 0, scale: 0.9 }}
                 whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true, margin: "-15% 0px" }}
+                viewport={{ once: true, margin: "0px 0px -5% 0px" }}
                 transition={{ duration: 0.4, delay: 0.8 + i * 0.08, ease: [0.16, 1, 0.3, 1] }}
                 className="flex items-center gap-2 rounded-full border border-hairline-strong bg-white/60 px-4 py-2 text-[13px] text-ink/75"
               >

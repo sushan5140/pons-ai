@@ -14,7 +14,7 @@ const FIELDS = [
 
 export default function MetadataExtraction() {
   return (
-    <section className="relative px-6 py-24 sm:py-32">
+    <section className="relative px-6 py-8 sm:py-12">
       <div className="mx-auto max-w-6xl">
         <Reveal className="mx-auto max-w-xl text-center">
           <h2 className="text-balance font-display text-[30px] font-medium leading-[1.15] tracking-[-0.01em] text-ink sm:text-[38px]">
@@ -58,7 +58,7 @@ export default function MetadataExtraction() {
                   key={field.label}
                   initial={{ opacity: 0, x: 12 }}
                   whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true, margin: "-15% 0px" }}
+                  viewport={{ once: true, margin: "0px 0px -5% 0px" }}
                   transition={{ duration: 0.5, delay: i * 0.12, ease: [0.16, 1, 0.3, 1] }}
                   className="flex items-center justify-between gap-4 border-b border-hairline px-4 py-3.5 last:border-b-0"
                 >

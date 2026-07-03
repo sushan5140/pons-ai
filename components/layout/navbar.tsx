@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import MagneticButton from "@/components/ui/magnetic-button";
+import { useGoogleSignIn } from "@/lib/hooks/use-google-sign-in";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
@@ -13,6 +14,7 @@ const LINKS = [
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
+  const { signIn, loading } = useGoogleSignIn();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -57,11 +59,11 @@ export default function Navbar() {
         </nav>
 
         <MagneticButton
-          href="/app"
+          onClick={signIn}
           className="bg-ink text-white hover:bg-ink/85"
           strength={0.25}
         >
-          Try the Demo
+          {loading ? "Redirecting…" : "Get Started"}
         </MagneticButton>
       </div>
     </motion.header>

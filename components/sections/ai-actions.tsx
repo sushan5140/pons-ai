@@ -29,7 +29,7 @@ const PAIRS = [
 
 export default function AIActions() {
   return (
-    <section className="relative px-6 py-24 sm:py-32">
+    <section className="relative px-6 py-8 sm:py-12">
       <div className="mx-auto max-w-5xl">
         <Reveal className="mx-auto max-w-lg text-center">
           <h2 className="text-balance font-display text-[28px] font-medium leading-[1.2] tracking-[-0.01em] text-ink sm:text-[36px]">
@@ -47,7 +47,7 @@ export default function AIActions() {
               key={pair.from}
               initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-15% 0px" }}
+              viewport={{ once: true, margin: "0px 0px -5% 0px" }}
               transition={{ duration: 0.5, delay: (i % 2) * 0.1, ease: [0.16, 1, 0.3, 1] }}
               className="glass-surface flex items-center justify-between gap-3 rounded-[16px] px-5 py-4"
             >

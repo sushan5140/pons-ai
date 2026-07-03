@@ -13,7 +13,7 @@ const PONS = [
 
 export default function Comparison() {
   return (
-    <section className="relative px-6 py-24 sm:py-32">
+    <section className="relative px-6 py-8 sm:py-12">
       <div className="mx-auto max-w-4xl">
         <Reveal className="mx-auto max-w-lg text-center">
           <h2 className="text-balance font-display text-[28px] font-medium leading-[1.2] tracking-[-0.01em] text-ink sm:text-[36px]">

@@ -21,7 +21,7 @@ const POINTS = [
 
 export default function Privacy() {
   return (
-    <section id="privacy" className="relative border-y border-hairline px-6 py-24 sm:py-28">
+    <section id="privacy" className="relative scroll-mt-28 border-y border-hairline px-6 py-8 sm:py-10">
       <div className="mx-auto max-w-5xl">
         <Reveal className="mx-auto max-w-lg text-center">
           <h2 className="text-balance font-display text-[28px] font-medium leading-[1.2] tracking-[-0.01em] text-ink sm:text-[34px]">
