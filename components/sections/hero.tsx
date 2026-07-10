@@ -9,7 +9,7 @@ import HeroWidgetGrid from "./hero-widget-grid";
 const CHIPS = ["Natural language search", "AI reminders", "Connected memory"];
 
 export default function Hero() {
-  const { signIn, loading } = useGoogleSignIn();
+  const { signIn, loading, error } = useGoogleSignIn();
 
   return (
     <section
@@ -56,6 +56,11 @@ export default function Hero() {
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </MagneticButton>
             </div>
+            {error && (
+              <p className="mt-3 text-[13px] text-red-500" role="alert">
+                {error}
+              </p>
+            )}
           </Reveal>
 
           <Reveal delay={0.42}>

@@ -14,7 +14,7 @@ const LINKS = [
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
-  const { signIn, loading } = useGoogleSignIn();
+  const { signIn, loading, error } = useGoogleSignIn();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -58,13 +58,23 @@ export default function Navbar() {
           ))}
         </nav>
 
-        <MagneticButton
-          onClick={signIn}
-          className="bg-ink text-white hover:bg-ink/85"
-          strength={0.25}
-        >
-          {loading ? "Redirecting…" : "Get Started"}
-        </MagneticButton>
+        <div className="relative">
+          <MagneticButton
+            onClick={signIn}
+            className="bg-ink text-white hover:bg-ink/85"
+            strength={0.25}
+          >
+            {loading ? "Redirecting…" : "Get Started"}
+          </MagneticButton>
+          {error && (
+            <p
+              role="alert"
+              className="absolute right-0 top-full mt-2 w-56 text-right text-[12px] text-red-500"
+            >
+              {error}
+            </p>
+          )}
+        </div>
       </div>
     </motion.header>
   );
