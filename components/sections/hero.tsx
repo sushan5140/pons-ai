@@ -65,7 +65,7 @@ export default function Hero() {
 
           <Reveal delay={0.42}>
             <p className="mt-5 text-[13px] text-ink/45">
-              Free to try — no credit card, no account required.
+              Product prototype — core flows are under active development.
             </p>
           </Reveal>
 
