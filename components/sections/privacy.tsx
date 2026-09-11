@@ -4,18 +4,18 @@ import Reveal from "@/components/ui/reveal";
 const POINTS = [
   {
     icon: SlidersHorizontal,
-    title: "On-device processing",
-    body: "Available for the moments that call for it — your screenshots don't have to leave your device.",
+    title: "Local-first direction",
+    body: "The product is designed to support privacy-sensitive workflows with as much processing kept local as practical.",
   },
   {
     icon: Lock,
-    title: "Encrypted sync",
-    body: "Everything that does sync is encrypted end to end, so it's readable by you and no one else.",
+    title: "Protected sync",
+    body: "The sync architecture is being designed around encryption and minimizing unnecessary access to personal data.",
   },
   {
     icon: ShieldCheck,
-    title: "You control your data",
-    body: "Export it, delete it, or turn it off entirely — at any time, in one place.",
+    title: "User-controlled data",
+    body: "Export, deletion and clear opt-out controls are part of the intended product direction as the backend matures.",
   },
 ];
 
