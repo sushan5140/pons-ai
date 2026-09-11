@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# pons-ai
 
-## Getting Started
+**pons** is a screenshot-intelligence prototype: instead of treating screenshots as passive image storage, it turns them into searchable information, linked entities and useful actions.
 
-First, run the development server:
+The product concept is simple: capture something once, then let the system help you find it, connect it and act on it later.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Core idea
+
+A screenshot can contain a flight, bill, warranty, product, recipe, restaurant, date, person or place. pons explores a pipeline that converts that unstructured image into structured information:
+
+```
+Screenshot
+  -> AI vision
+  -> entity extraction
+  -> connected memory / knowledge graph
+  -> search, collections, reminders or actions
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## What the prototype includes
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- Screenshot-oriented product UI
+- Natural-language search concept
+- Entity extraction and metadata presentation
+- Connected-memory / knowledge-graph visualization
+- AI action flows for reminders, calendars and collections
+- Google sign-in flow
+- Supabase integration
+- Privacy-focused product surfaces
+- Motion-rich interactive product storytelling
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+> **Project status:** active product prototype. The repository demonstrates the application architecture and experience; some product capabilities shown in marketing sections are forward-looking prototype behavior rather than claims of a fully productionized service.
 
-## Learn More
+## Stack
 
-To learn more about Next.js, take a look at the following resources:
+- Next.js 16
+- React 19
+- TypeScript
+- Supabase
+- Tailwind CSS
+- Framer Motion
+- GSAP
+- React Three Fiber / Three.js
+- Lenis
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Why I built it
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+People often save screenshots because they contain something useful, then lose that information inside a camera roll. pons explores whether those screenshots can become a lightweight personal knowledge layer instead: searchable, connected and actionable.
 
-## Deploy on Vercel
+## Repository structure
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `app/` — application routes
+- `components/sections/` — product explanation and interaction sections
+- `components/ui/` — reusable interface/motion primitives
+- `lib/` — application helpers, hooks and service logic
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Running locally
+
+```bash
+npm install
+npm run dev
+```
+
+Then open `http://localhost:3000`.
+
+## Privacy note
+
+The interface includes privacy-oriented concepts such as controlled processing and encrypted sync. Treat these as product design goals unless the corresponding implementation is explicitly present and verified in the codebase.
