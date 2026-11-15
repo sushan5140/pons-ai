@@ -53,13 +53,22 @@ export async function POST(request: Request) {
     );
   }
 
-  const ics = buildIcsFile({
-    uid: row.id,
-    title: row.action_title,
-    date: row.action_date,
-    location: row.action_location,
-    reminderMinutesBefore: row.reminder_minutes_before,
-  });
+  let ics: string;
+  try {
+    ics = buildIcsFile({
+      uid: row.id,
+      title: row.action_title,
+      date: row.action_date,
+      location: row.action_location,
+      reminderMinutesBefore: row.reminder_minutes_before,
+    });
+  } catch (error) {
+    console.error("Invalid extracted calendar event:", error);
+    return NextResponse.json(
+      { error: "The extracted event date is invalid. Please review it before adding to Calendar." },
+      { status: 422 }
+    );
+  }
 
   const { error: updateError } = await supabase
     .from("screenshots")
