@@ -1,0 +1,33 @@
+name: Calendar export regression
+
+on:
+  pull_request:
+    paths:
+      - "lib/ics.ts"
+      - "app/api/confirm-action/route.ts"
+      - "tests/ics.test.mjs"
+      - ".github/workflows/calendar-export-tests.yml"
+  push:
+    branches: [main]
+    paths:
+      - "lib/ics.ts"
+      - "app/api/confirm-action/route.ts"
+      - "tests/ics.test.mjs"
+      - ".github/workflows/calendar-export-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  calendar-export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Validate calendar files without API calls
+        run: node --experimental-strip-types --conditions=react-server --test tests/ics.test.mjs
