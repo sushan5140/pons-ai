@@ -10,20 +10,23 @@ import "server-only";
  * point that matters, swap the Map below for a Supabase-backed counter (or
  * Upstash/Redis) without changing the checkRateLimit call sites.
  */
-const hits = new Map<string, number[]>();
+type WindowBucket = { timestamps: number[]; windowMs: number };
+const hits = new Map<string, WindowBucket>();
 
 // Sweeps stale keys periodically so this Map doesn't grow unbounded for the
 // life of the server process.
 const SWEEP_INTERVAL_MS = 5 * 60 * 1000;
 let lastSweep = Date.now();
 
-function sweep(now: number, windowMs: number) {
+function sweep(now: number) {
   if (now - lastSweep < SWEEP_INTERVAL_MS) return;
   lastSweep = now;
-  for (const [key, timestamps] of hits) {
-    const kept = timestamps.filter((t) => now - t < windowMs);
+  for (const [key, bucket] of hits) {
+    // Other endpoints can use different windows; never expire one key using
+    // the duration of the unrelated request that happened to trigger a sweep.
+    const kept = bucket.timestamps.filter((t) => now - t < bucket.windowMs);
     if (kept.length === 0) hits.delete(key);
-    else hits.set(key, kept);
+    else bucket.timestamps = kept;
   }
 }
 
@@ -39,9 +42,9 @@ export interface RateLimitResult {
  */
 export function checkRateLimit(key: string, limit: number, windowMs: number): RateLimitResult {
   const now = Date.now();
-  sweep(now, windowMs);
+  sweep(now);
 
-  const timestamps = (hits.get(key) ?? []).filter((t) => now - t < windowMs);
+  const timestamps = (hits.get(key)?.timestamps ?? []).filter((t) => now - t < windowMs);
 
   if (timestamps.length >= limit) {
     const oldest = timestamps[0];
@@ -50,6 +53,6 @@ export function checkRateLimit(key: string, limit: number, windowMs: number): Ra
   }
 
   timestamps.push(now);
-  hits.set(key, timestamps);
+  hits.set(key, { timestamps, windowMs });
   return { allowed: true, retryAfterSeconds: 0 };
 }

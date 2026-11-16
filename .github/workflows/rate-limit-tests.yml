@@ -1,0 +1,31 @@
+name: Rate limiter regression
+
+on:
+  pull_request:
+    paths:
+      - "lib/rate-limit.ts"
+      - "tests/rate-limit.test.mjs"
+      - ".github/workflows/rate-limit-tests.yml"
+  push:
+    branches: [main]
+    paths:
+      - "lib/rate-limit.ts"
+      - "tests/rate-limit.test.mjs"
+      - ".github/workflows/rate-limit-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Run offline rate limiter regression tests
+        run: node --experimental-strip-types --conditions=react-server --test tests/rate-limit.test.mjs
